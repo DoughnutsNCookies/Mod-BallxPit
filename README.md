@@ -20,7 +20,8 @@ Shows evolution recipes right inside the game, so you don't need the wiki open w
 ![Nested tooltip: made from and evolves further](docs/screenshots/2-nested-tooltip.png)
 
 **During a run**
-- DPS at the top of the screen (damage from your balls, averaged over the last 3 seconds).
+- DPS at the top of the screen: all damage that lands on enemies, averaged over the last 10 seconds of run time. That includes baby balls, status effects and passives that deal damage on their own.
+- DPS of each ball and passive on its icon: on the pause screen (with an extra entry for baby balls), on the level-up screen's row of current equipment, in the fusion picker, and as a line in the equipment popup. These use the game's own per-item counters, which overlap, so they do not add up to the total.
 - Numbers on the health orb and the XP bar.
 
 ![DPS, health and XP numbers](docs/screenshots/3-hud-dps-hp-xp.png)
@@ -107,10 +108,12 @@ The macOS version of the game is a Mono build, not IL2CPP, so the Windows DLL do
 | `Evo.cs` | Recipe logic: owned items and levels, offers, ready pairs, encyclopedia check |
 | `Overlay.cs` | The evolutions block in the game's tooltip, icon chips, scrolling, nested tooltips |
 | `OverlayPad.cs` | Controller inspect mode for the block and its tooltips |
-| `OverlayEquip.cs` | Evolutions list in the game's equipment popup (Details view, HUD hover) |
+| `OverlayEquip.cs` | Evolutions list and DPS line in the game's equipment popup (Details view, HUD hover) |
 | `Info.cs` | "Made from" / "evolves further" lookups and the game's description text |
 | `CharLock.cs` | Which character a character-specific passive belongs to |
 | `Hud.cs` | DPS, health and XP numbers |
+| `Dps.cs` | Damage rates: the hook that counts every hit on an enemy, and the per-item meters |
+| `HudItemDps.cs` | Per-item DPS on the pause screen, level-up row and fusion picker icons |
 | `StickSwap.cs` | Optional stick swap for the village and fights, and its rows in Options > General |
 
 ### Game classes used (from a Cpp2IL dump)

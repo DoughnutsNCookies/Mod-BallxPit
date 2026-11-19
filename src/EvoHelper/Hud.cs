@@ -7,18 +7,17 @@ using UnityEngine.UI;
 namespace EvoHelper;
 
 // In-run HUD additions, read-only:
-//  - DPS readout at the top middle of the screen (damage your balls dealt over the
-//    last few seconds of game time, from the game's own per-ball damage stats).
+//  - DPS readout at the top middle of the screen (all damage landed on enemies over
+//    the last few seconds of run time; see Dps).
 //  - "current / max" numbers on the health orb.
 //  - "current / needed" numbers on the XP bar.
 // F9 toggles all three.
-public class Hud : MonoBehaviour
+public partial class Hud : MonoBehaviour
 {
 #if !MONO
     public Hud(IntPtr ptr) : base(ptr) { }
 #endif
 
-    const float Window = 3f;          // seconds of game time the DPS is averaged over
     const float Refresh = 0.5f;       // real seconds between DPS text updates, so it stays readable
 
     static bool _hidden;
@@ -31,10 +30,7 @@ public class Hud : MonoBehaviour
     bool _placeLogged;
     InGameUI _builtFor;
 
-    readonly Queue<(float t, long dmg)> _samples = new();
-    float _lastTime = -1f;
     float _nextDpsText;
-    long _lastDmg = -1;
 
     void OnGUI()
     {
@@ -64,6 +60,7 @@ public class Hud : MonoBehaviour
         if (_builtFor == null || _builtFor.Pointer != ui.Pointer || _dps == null) Build(ui);
 
         UpdateDps(battle);
+        RefreshSourceLabels(battle);
 
         // Safety net in case the screen closed without the game calling Deactivate.
         if (Plugin.LevelUpOpen && (LevelUpUI.I == null || !LevelUpUI.I.isActiveAndEnabled)) Plugin.LevelUpOpen = false;
@@ -76,56 +73,14 @@ public class Hud : MonoBehaviour
 
     // ---------- DPS ----------
 
-    static long Sum(HeroStatData s) =>
-        s == null ? 0 : s.BounceDmgDealt + s.StatusEffectDmgDealt + s.AltDmgDealt + s.AOEDmgDealt;
-
-    static long TotalDamage(BattleSaveData b)
-    {
-        long total = 0;
-        var heroes = b.Heroes;
-        if (heroes == null) return 0;
-        for (int i = 0; i < heroes.Count; i++)
-        {
-            var stats = heroes[i]?.StatData;
-            if (stats == null) continue;
-            for (int j = 0; j < stats.Count; j++) total += Sum(stats[j]);
-        }
-        return total;
-    }
-
     void UpdateDps(BattleSaveData b)
     {
-        float now = b.ElapsedTime;
-        long dmg = TotalDamage(b);
-
-        // New run, or a ball evolved and its stats moved: restart from here.
-        if (now < _lastTime || dmg < _lastDmg) _samples.Clear();
-        _lastTime = now;
-        _lastDmg = dmg;
-
-        if (_samples.Count == 0 || now > LastT() + 0.1f)
-            _samples.Enqueue((now, dmg));
-        while (_samples.Count > 1 && now - _samples.Peek().t > Window) _samples.Dequeue();
-
-        long dps = 0;
-        if (_samples.Count > 1)
-        {
-            var first = _samples.Peek();
-            float dt = now - first.t;
-            if (dt > 0.5f) dps = (long)((dmg - first.dmg) / dt);
-        }
+        Dps.Sample(b);
         if (Time.unscaledTime < _nextDpsText) return;
         _nextDpsText = Time.unscaledTime + Refresh;
-        SetText(_dps, _dpsShadow, $"DPS <color=#F2C14E>{Fmt(dps)}</color>");
+        SetText(_dps, _dpsShadow, $"DPS <color=#F2C14E>{Fmt(Dps.Total.Rate)}</color>");
         if (_dpsBg != null)
             _dpsBg.sizeDelta = new Vector2(Mathf.Round(_dps.preferredWidth + _dps.fontSize * 1.2f), Mathf.Round(_dps.fontSize * 1.6f));
-    }
-
-    float LastT()
-    {
-        float t = -1f;
-        foreach (var s in _samples) t = s.t;
-        return t;
     }
 
     // ---------- health / XP numbers ----------
@@ -201,7 +156,7 @@ public class Hud : MonoBehaviour
 
     // Invariant culture: some locales group digits with a narrow no-break space the game font lacks (shows as "?").
     static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
-    static string Fmt(long v) =>
+    internal static string Fmt(long v) =>
         v >= 10_000_000 ? (v / 1_000_000f).ToString("0.#", Inv) + "M"
         : v >= 100_000 ? (v / 1000f).ToString("0.#", Inv) + "k"
         : v.ToString("N0", Inv);
@@ -215,7 +170,6 @@ public class Hud : MonoBehaviour
         if (_hp != null) Destroy(_hp.transform.parent.gameObject);
         _dps = _xp = _hp = null;
         _builtFor = ui;
-        _samples.Clear();
 
         var src = ui.TxtCurHealth;
         if (src == null) throw new Exception("InGameUI.TxtCurHealth missing");

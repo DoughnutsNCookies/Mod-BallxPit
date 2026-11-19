@@ -56,6 +56,12 @@ public class Plugin : BasePlugin
         catch (Exception e) { Log.LogError("Swap sticks input patches failed: " + e); }
         try { Harmony.CreateAndPatchAll(typeof(StickSwapMenuPatches)); }
         catch (Exception e) { Log.LogError("Swap sticks options row failed: " + e); }
+        try { Harmony.CreateAndPatchAll(typeof(DpsPatches)); Dps.Hooked = true; }
+        catch (Exception e) { Log.LogError("Damage hook failed; DPS falls back to the balls' own counters: " + e); }
+        try { Harmony.CreateAndPatchAll(typeof(ItemIconPatches)); }
+        catch (Exception e) { Log.LogError("Icon patches failed; no per-item DPS on the pause screen or fusion picker: " + e); }
+        try { Harmony.CreateAndPatchAll(typeof(LevelUpStripPatches)); }
+        catch (Exception e) { Log.LogError("Level-up strip patches failed; no per-item DPS there: " + e); }
         AddComponent<Overlay>();
         AddComponent<Hud>();
         Log.LogInfo($"EvoHelper {Version} loaded. F8 toggles the evolution block, F9 the DPS / bar numbers.");
